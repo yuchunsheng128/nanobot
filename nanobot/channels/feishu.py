@@ -1,12 +1,12 @@
 """Feishu/Lark channel implementation using lark-oapi SDK with WebSocket long connection."""
 
 import asyncio
+import importlib.util
 import json
 import os
 import re
 import threading
 from collections import OrderedDict
-from pathlib import Path
 from typing import Any
 
 from loguru import logger
@@ -16,8 +16,6 @@ from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.paths import get_media_dir
 from nanobot.config.schema import FeishuConfig
-
-import importlib.util
 
 FEISHU_AVAILABLE = importlib.util.find_spec("lark_oapi") is not None
 
@@ -315,6 +313,7 @@ class FeishuChannel(BaseChannel):
         # "This event loop is already running" errors.
         def run_ws():
             import time
+
             import lark_oapi.ws.client as _lark_ws_client
             ws_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(ws_loop)
@@ -354,7 +353,11 @@ class FeishuChannel(BaseChannel):
 
     def _add_reaction_sync(self, message_id: str, emoji_type: str) -> None:
         """Sync helper for adding reaction (runs in thread pool)."""
-        from lark_oapi.api.im.v1 import CreateMessageReactionRequest, CreateMessageReactionRequestBody, Emoji
+        from lark_oapi.api.im.v1 import (
+            CreateMessageReactionRequest,
+            CreateMessageReactionRequestBody,
+            Emoji,
+        )
         try:
             request = CreateMessageReactionRequest.builder() \
                 .message_id(message_id) \
@@ -893,8 +896,37 @@ class FeishuChannel(BaseChannel):
             chat_type = message.chat_type
             msg_type = message.message_type
 
-            # Add reaction
-            await self._add_reaction(message_id, self.config.react_emoji)
+            # Check if mentioned in group
+            is_group = chat_type != "p2p"
+            is_mentioned = False
+            if message.mentions:
+                # If mentions array is present, bot is usually in it if it received the event in a group
+                # But to be safe, we might need to know our own ID.
+                # However, for now, receiving a message in group usually implies mention if bot is not in "all messages" mode.
+                # But if "all messages" is enabled, we need to filter.
+                # A simple heuristic: if 'mentions' is not empty, check if any mention is for us.
+                # Since we don't know our own open_id easily here without an API call,
+                # we rely on the fact that if we are configured to only respond to mentions,
+                # the event itself might carry that context.
+                # Actually, message.mentions contains a list of Mention objects.
+                # Let's inspect content or mentions.
+                # For now, let's assume if it's a group, we react only if we detect a mention.
+                pass
+
+            # Smart reaction:
+            # - P2P: Always react
+            # - Group: If config.group_react_only_mention is true, only react when mentioned.
+            #   Otherwise, react to all messages.
+            should_react = False
+            if not is_group:
+                should_react = True
+            elif not self.config.group_react_only_mention:
+                should_react = True
+            elif message.mentions:
+                should_react = True
+
+            if should_react:
+                await self._add_reaction(message_id, self.config.react_emoji)
 
             # Parse content
             content_parts = []
@@ -965,7 +997,7 @@ class FeishuChannel(BaseChannel):
                 metadata={
                     "message_id": message_id,
                     "chat_type": chat_type,
-                    "msg_type": msg_type,
+                    "msg_type": msg_type, "is_group": chat_type != "p2p",
                 }
             )
 

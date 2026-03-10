@@ -2,7 +2,6 @@
 
 import asyncio
 import re
-from typing import Any
 
 from loguru import logger
 from slack_sdk.socket_mode.request import SocketModeRequest
@@ -188,6 +187,7 @@ class SlackChannel(BaseChannel):
                 chat_id=chat_id,
                 content=text,
                 metadata={
+                    "is_group": channel_type not in ("im", "app_home"),
                     "slack": {
                         "event": event,
                         "thread_ts": thread_ts,

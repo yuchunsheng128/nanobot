@@ -8,7 +8,7 @@ import re
 import weakref
 from contextlib import AsyncExitStack
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 from loguru import logger
 
@@ -422,6 +422,7 @@ class AgentLoop:
             current_message=msg.content,
             media=msg.media if msg.media else None,
             channel=msg.channel, chat_id=msg.chat_id,
+            metadata=msg.metadata,
         )
 
         async def _bus_progress(content: str, *, tool_hint: bool = False) -> None:
@@ -436,13 +437,19 @@ class AgentLoop:
             initial_messages, on_progress=on_progress or _bus_progress,
         )
 
-        if final_content is None:
+        if final_content and final_content.strip() == "<SILENCE>":
+            final_content = None
+
+        if final_content is None and not (msg.metadata and msg.metadata.get("is_group")):
             final_content = "I've completed processing but have no response to give."
 
         self._save_turn(session, all_msgs, 1 + len(history))
         self.sessions.save(session)
 
         if (mt := self.tools.get("message")) and isinstance(mt, MessageTool) and mt._sent_in_turn:
+            return None
+
+        if final_content is None:
             return None
 
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content

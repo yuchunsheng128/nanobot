@@ -650,7 +650,7 @@ class MatrixChannel(BaseChannel):
 
     def _base_metadata(self, room: MatrixRoom, event: RoomMessage) -> dict[str, Any]:
         """Build common metadata for text and media handlers."""
-        meta: dict[str, Any] = {"room": getattr(room, "display_name", room.room_id)}
+        meta: dict[str, Any] = {"room": getattr(room, "display_name", room.room_id), "is_group": not self._is_direct_room(room)}
         if isinstance(eid := getattr(event, "event_id", None), str) and eid:
             meta["event_id"] = eid
         if thread := self._thread_metadata(event):

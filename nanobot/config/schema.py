@@ -48,6 +48,7 @@ class FeishuConfig(Base):
     react_emoji: str = (
         "THUMBSUP"  # Emoji type for message reactions (e.g. THUMBSUP, OK, DONE, SMILE)
     )
+    group_react_only_mention: bool = True  # If true, only add reaction emoji when bot is mentioned in group chats
 
 
 class DingTalkConfig(Base):

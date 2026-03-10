@@ -464,7 +464,7 @@ class DingTalkChannel(BaseChannel):
                 metadata={
                     "sender_name": sender_name,
                     "platform": "dingtalk",
-                    "conversation_type": conversation_type,
+                    "conversation_type": conversation_type, "is_group": is_group,
                 },
             )
         except Exception as e:

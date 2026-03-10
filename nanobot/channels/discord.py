@@ -324,7 +324,7 @@ class DiscordChannel(BaseChannel):
             media=media_paths,
             metadata={
                 "message_id": str(payload.get("id", "")),
-                "guild_id": guild_id,
+                "guild_id": guild_id, "is_group": bool(guild_id),
                 "reply_to": reply_to,
             },
         )
